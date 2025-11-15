@@ -14,4 +14,4 @@ args.o:
 	nvcc -c args.cpp -o args.o
 
 clean:
-	rm -rf *.o simulator ./img/*.bmp
+	rm -rf *.o simulator ./img/*.bmp ./img/*.mp4
