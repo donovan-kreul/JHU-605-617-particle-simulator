@@ -1,5 +1,7 @@
 # JHU-605-617 Final Project: Particle Simulator
 
+https://github.com/user-attachments/assets/6db1206b-564c-4fab-a7dd-222cd69b8748
+
 ## Overview
 
 For my final project in this course, I am implementing a basic particle simulator using CUDA. The simulation spawns particles in a two-dimensional environment. The particles' positions and velocities are initialized with random values using cuRAND. Currently, the particles are affected by gravity, and by collisons with the boundaries of the environment. The program generates a series of bitmap images, which can then be stitched together into a video using ffmpeg.
