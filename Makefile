@@ -1,8 +1,8 @@
-all: simulator.o bitmap.o
-	nvcc -lcublas simulator.o bitmap.o -o simulator.exe -Wno-deprecated-gpu-targets
+all: clean simulator.o bitmap.o
+	nvcc -lcurand simulator.o bitmap.o -o simulator.exe -Wno-deprecated-gpu-targets
 
-debug: simulator.o bitmap.o
-	nvcc -lcublas -g -G simulator.o bitmap.o -o simulator.exe -Wno-deprecated-gpu-targets
+debug: clean simulator.o bitmap.o
+	nvcc -lcurand -g -G simulator.o bitmap.o -o simulator.exe -Wno-deprecated-gpu-targets
 
 simulator.o: 
 	nvcc -c simulator.cu -o simulator.o
