@@ -1,6 +1,6 @@
 # JHU-605-617 Final Project: Particle Simulator
 
-## Summary
+## Overview
 
 For my final project in this course, I am implementing a basic particle simulator using CUDA. The simulation spawns particles in a two-dimensional environment. The particles' positions and velocities are initialized with random values using cuRAND. Currently, the particles are affected by gravity, and by collisons with the boundaries of the environment. The program generates a series of bitmap images, which can then be stitched together into a video using ffmpeg.
 
@@ -44,14 +44,17 @@ These are the available parameters, which can also be found with `./simulator --
 There are several avenues I would like to explore for improvement and expansion of this project.
 
 * Timing and performance compared to CPU-only implementation
- * Consider using GPU for additional work, such as creating the bitmap image buffers.
- * Make use of CUDA streams for better performance on the large memory transfers.
- * If possible: directly encode the video using the GPU.
+  * Consider using GPU for additional work, such as creating the bitmap image buffers.
+  * Make use of CUDA streams for better performance on the large memory transfers.
+  * If possible: directly encode the video using the GPU.
 * Simulate additional forces and/or types of particles.
- * Adding additional sources of gravity, modeling gaseous particles, simulating particle-particle interaction, or many other possibilities.
+  * Adding additional sources of gravity, modeling gaseous particles, simulating particle-particle interaction, or many other possibilities.
 
 ## References
 
+* https://en.wikipedia.org/wiki/BMP_file_format
+* https://www.samaterials.com/content/coefficient-of-restitution.html
 * https://stackoverflow.com/questions/31598021/cuda-cudamemcpy-struct-of-arrays
 * https://forums.developer.nvidia.com/t/dynamic-array-inside-struct/10455
 * https://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Option-Example.html
+* https://hamelot.io/visualization/using-ffmpeg-to-convert-a-set-of-images-into-a-video/

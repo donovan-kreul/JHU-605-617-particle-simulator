@@ -10,14 +10,12 @@
 #include "particles.h"
 #include "bitmap.h"
 
-// Timing constants.
 // Simulation renders one image per TIME_STEP * PRINT_INTERVAL seconds,
 // which in this case is 50 frames per second.
 #define PRINT_INTERVAL 20
 #define TIME_STEP 0.001
 
 // Gravity.
-// TODO: allow user to alter?
 #define G ((float)-9.8)
 
 // Controls the (random) distribution of initial positions and velocities.
@@ -176,7 +174,6 @@ void update_device_particle_grid(particle_grid_t particles, size_t num_particles
   }
 }
 
-// TODO: consider asynchronous copy / use streams here
 // Copy device particle matrix to host.
 void copy_particle_grid(particle_grid_t p_d, particle_grid_t p_h, size_t num_particles) {
   size_t num_bytes = sizeof(double) * num_particles;
@@ -230,14 +227,14 @@ int main(int argc, char** argv)
 	curandState_t* states;
 	gpuErrChk(cudaMalloc((void **)&states, n_particles * sizeof(curandState_t)));
 	curand_init_kernel<<<grid_size, block_size>>>
-  (time(0), states, n_particles);
+    (time(0), states, n_particles);
 	gpuErrChk(cudaGetLastError());
   
 	// Create particle grid on device, and initialize with random values.
   printf("Creating particle grids...\n");
   particle_grid_t particles_d = create_device_particle_grid(n_particles);
 	initialize_device_particle_grid<<<grid_size, block_size>>>
-  (states, particles_d, n_particles);
+    (states, particles_d, n_particles);
 	gpuErrChk(cudaGetLastError());
   
   // Allocate space for host particle grid.
