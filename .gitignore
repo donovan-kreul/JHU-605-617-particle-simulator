@@ -1,3 +1,4 @@
-img/
 *.o
 simulator
+*.bmp
+*.mp4

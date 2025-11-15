@@ -8,7 +8,7 @@ For my final project in this course, I am implementing a basic particle simulato
 
 The project relies on CUDA and cuRAND. For final stitching of the video, the user can manually run ffmpeg. All testing has been done on Linux using an Nvidia Quadro P620. 
 
-To build, run `make`. The executable will be `./simulator`, which can be run without any additional arguments. See below for optional arguments. Images will be sent to `/img` in the bitmap (`.bmp`) format. To clear all intermediate files (and everything from `/img`), run `make clean`.
+To build, run `make`. The executable will be `./simulator`, which can be run on its own or with additional arguments (see below). Images will be written to `/img` in the bitmap (`.bmp`) format. To clear all intermediate files (and everything from `/img`), run `make clean`.
 
 To encode a `.mp4` video from the generated images, run the following command:
 ```bash
@@ -20,11 +20,38 @@ The video will be generated at `./img/simulation.mp4`.
 
 These are the available parameters, which can also be found with `./simulator --help`. 
 
+```bash
+  -h, --help
+      Show this mesasge and exit.
+  -g, --debug
+      Print additional information. Useful for debugging.
+  -b, --block-size
+      Threads per block. Default: 512
+  -c, --boundary
+      Size of the 2D world environment. Default: 10.0
+  -d, --image-dim
+      Output image resolution (D by D). Default dimensions: 256 by 256
+  -e, --elasticity
+      The coefficient of restitution (COR); controls elasticity of collisons. Default: 0.50
+  -n, --particles
+      The number of particles in the simulation. Default: 1000
+  -t, --duration
+      The length of time to run the simulation, in seconds. Default: 5.0
+```
+
+## Future Work
+
+There are several avenues I would like to explore for improvement and expansion of this project.
+
+* Timing and performance compared to CPU-only implementation
+ * Consider using GPU for additional work, such as creating the bitmap image buffers.
+ * Make use of CUDA streams for better performance on the large memory transfers.
+ * If possible: directly encode the video using the GPU.
+* Simulate additional forces and/or types of particles.
+ * Adding additional sources of gravity, modeling gaseous particles, simulating particle-particle interaction, or many other possibilities.
+
 ## References
 
-// TODO: write up explanation of why we need a (non-pointer) struct to hold structure of arrays (attach reference(s))
-// https://stackoverflow.com/questions/31598021/cuda-cudamemcpy-struct-of-arrays
-
-https://forums.developer.nvidia.com/t/dynamic-array-inside-struct/10455
-
-ffmpeg taken from google AI with modifications:
+* https://stackoverflow.com/questions/31598021/cuda-cudamemcpy-struct-of-arrays
+* https://forums.developer.nvidia.com/t/dynamic-array-inside-struct/10455
+* https://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Option-Example.html

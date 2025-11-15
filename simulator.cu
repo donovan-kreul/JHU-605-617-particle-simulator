@@ -110,7 +110,8 @@ void destroy_device_particle_grid(particle_grid_t p) {
 
 // Fill particle grid with random positions and velocities.
 __global__ 
-void initialize_device_particle_grid(curandState_t *states, particle_grid_t particles, size_t n_particles) {
+void initialize_device_particle_grid(curandState_t *states, particle_grid_t particles, 
+                                      size_t n_particles) {
 	const unsigned int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (thread_idx < n_particles) {
     double x, y, vx, vy;
@@ -167,7 +168,8 @@ void update_particle(particle_grid_t p, size_t idx, double dt, double bdry, doub
 
 // Simulate time_step seconds of time for all particles in the grid.
 __global__
-void update_device_particle_grid(particle_grid_t particles, size_t num_particles, double time_step, double boundary, double elasticity) {
+void update_device_particle_grid(particle_grid_t particles, size_t num_particles, 
+                                  double time_step, double boundary, double elasticity) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid < num_particles) {
     update_particle(particles, tid, time_step, boundary, elasticity);
@@ -227,35 +229,42 @@ int main(int argc, char** argv)
 	// [Taken from class example code] Set up cuRAND states.
 	curandState_t* states;
 	gpuErrChk(cudaMalloc((void **)&states, n_particles * sizeof(curandState_t)));
-	curand_init_kernel<<<grid_size, block_size>>>(time(0), states, n_particles);
+	curand_init_kernel<<<grid_size, block_size>>>
+  (time(0), states, n_particles);
 	gpuErrChk(cudaGetLastError());
-
+  
 	// Create particle grid on device, and initialize with random values.
+  printf("Creating particle grids...\n");
   particle_grid_t particles_d = create_device_particle_grid(n_particles);
-	initialize_device_particle_grid<<<grid_size, block_size>>>(states, particles_d, n_particles);
+	initialize_device_particle_grid<<<grid_size, block_size>>>
+  (states, particles_d, n_particles);
 	gpuErrChk(cudaGetLastError());
-
+  
   // Allocate space for host particle grid.
   particle_grid_t particles_h = create_host_particle_grid(n_particles);
-
+  
 	// Run simulation.
+  printf("Running %u steps of simulation...\n", n_steps);
   for (int step = 0; step < n_steps; step++) {
     // Generate bitmap image on every print_interval'th step.
     if (step % print_interval == 0) {
       copy_particle_grid(particles_d, particles_h, n_particles);
       debug_print(debug, particles_h, n_particles, step);
       sprintf(file_name, "./img/image%04d.bmp", step / print_interval);
-      generate_bitmap(img_width,img_height,boundary,particles_h,n_particles,bg_color,pt_color,file_name);
+      generate_bitmap(img_width, img_height, boundary, particles_h,
+                      n_particles, bg_color, pt_color, file_name);
     }
     // Compute update to particle grid.
-    update_device_particle_grid<<<grid_size, block_size>>>(particles_d, n_particles, TIME_STEP, boundary, elasticity);
+    update_device_particle_grid<<<grid_size, block_size>>>
+      (particles_d, n_particles, TIME_STEP, boundary, elasticity);
   }
 
 	// Generate image of final result.
   copy_particle_grid(particles_d, particles_h, n_particles);
 	debug_print(debug, particles_h, n_particles, n_steps);
   sprintf(file_name, "./img/image%04u.bmp", n_steps / print_interval);
-  generate_bitmap(img_width, img_height, boundary, particles_h, n_particles, bg_color, pt_color, file_name);
+  generate_bitmap(img_width, img_height, boundary, particles_h,
+                  n_particles, bg_color, pt_color, file_name);
 
   // Clean up memory allocations.
 	gpuErrChk(cudaFree(states));
@@ -263,5 +272,6 @@ int main(int argc, char** argv)
   destroy_host_particle_grid(particles_h);
   free(args);
 
+  printf("Simulation complete! See /img for output.\n");
 	return EXIT_SUCCESS;
 }

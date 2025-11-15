@@ -4,6 +4,7 @@
 #include <cstddef>
 
 // Argument defaults.
+// Corresponds to 5 seconds of 50fps video.
 #define BLOCK_SIZE_DEFAULT 512
 #define NUM_PARTICLES_DEFAULT 1000
 #define N_STEPS_DEFAULT 2500

@@ -3,7 +3,9 @@
 #include <getopt.h>
 
 #include "args.h"
+#include "bitmap.h"
 
+// Generate message corresponding to -h/--help argument.
 void print_help_message() {
   printf("=====================================================================================================\n");
   printf("  Particle Simulator\n");
@@ -29,9 +31,9 @@ void print_help_message() {
   printf("=====================================================================================================\n");
 }
 
-// Code adapted from getopt_long example
-// https://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Option-Example.html
-// Returns 0 on success, 1 if -h was used, and -1 otherwise
+// Code adapted from GNU getopt_long example.
+// Fills `args` with user-provided arguments or default values.
+// Returns 0 on success, 1 if -h was used, and -1 otherwise.
 int get_arguments(int argc, char **argv, args_t *args) {
 
   // Set up arguments struct with defaults.
@@ -45,7 +47,7 @@ int get_arguments(int argc, char **argv, args_t *args) {
   args->elasticity = ELASTICITY_DEFAULT;
   args->debug = false;
 
-  // Process arguments, checking for non-negative values as necessary.
+  // Process arguments, checking for out-of-bound values as necessary.
   int c;
   int tmp_int;
   float tmp_double;
@@ -58,14 +60,13 @@ int get_arguments(int argc, char **argv, args_t *args) {
       {"image-dim",       required_argument, NULL, 'd'},
       {"elasticity",      required_argument, NULL, 'e'},
       {"particles",       required_argument, NULL, 'n'},
-      {"steps",           required_argument, NULL, 's'},
       {"duration",        required_argument, NULL, 't'},
       {0, 0, 0, 0}
     };
 
     int option_index = 0;
 
-    c = getopt_long(argc, argv, "hgb:c:d:e:n:s:t:", long_options, &option_index);
+    c = getopt_long(argc, argv, "hgb:c:d:e:n:t:", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -80,46 +81,58 @@ int get_arguments(int argc, char **argv, args_t *args) {
         printf("\n");
         break;
 
+      // block-size
       case 'b':
         if ((tmp_int = atoi(optarg)) > 0)
           args->block_size = tmp_int;
         break;
 
+      // boundary
       case 'c':
         if ((tmp_double = atof(optarg)) > 0)
           args->boundary = tmp_double;
         break;
       
+      // image-dim
       case 'd':
-        if ((tmp_int = atoi(optarg)) > 0) {
+        tmp_int = atoi(optarg);
+        if (tmp_int > 0) {
+          if ((tmp_int % 4) != 0) {
+            tmp_int = pad_to_four(tmp_int);
+            printf("Image resolution must be multiple of 4. Changing to %d...\n", tmp_int);
+          }
           args->img_height = tmp_int;
           args->img_width = tmp_int;
         }
         break;
 
+      // elasticity
       case 'e':
-        if ((tmp_double = atof(optarg)) > 0)
+        tmp_double = atof(optarg);
+        if (tmp_double > 0) {
+          if (tmp_double > 1)
+            printf("WARNING: elasticity given (%.2lf) is greater than 1.0. Simulation may be unstable.\n", tmp_double);
           args->elasticity = tmp_double;
+        }
         break;
 
+      // help
       case 'h':
         print_help_message();
         return 1;
         break;
 
+      // debug
       case 'g':
         args->debug = true;
         break;
 
+      // particles
       case 'n':
         args->n_particles = (size_t)atol(optarg);
         break;
 
-      case 's':
-        if ((tmp_int = atoi(optarg)) > 0)
-          args->n_steps = tmp_int;
-        break;
-
+      // duration
       case 't':
         if ((tmp_double = atof(optarg)) > 0)
           args->duration = tmp_double;
