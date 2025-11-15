@@ -6,10 +6,11 @@
 // Argument defaults.
 #define BLOCK_SIZE_DEFAULT 512
 #define NUM_PARTICLES_DEFAULT 1000
-#define N_STEPS_DEFAULT 500
-#define PRINT_INTERVAL_DEFAULT 100
+#define N_STEPS_DEFAULT 2500
+#define PRINT_INTERVAL_DEFAULT 10
 #define IMG_HEIGHT_DEFAULT 256
 #define IMG_WIDTH_DEFAULT 256
+#define BOUNDARY_DEFAULT 10.0
 
 typedef struct {
   unsigned int block_size;
@@ -17,6 +18,7 @@ typedef struct {
   unsigned int print_interval;
   unsigned int img_height;
   unsigned int img_width;
+  double boundary;
   size_t n_particles;
 } args_t;
 

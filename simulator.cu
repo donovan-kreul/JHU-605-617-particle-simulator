@@ -17,7 +17,9 @@
 
 // Controls the (random) distribution of initial positions and velocities.
 #define P_SCALE 1.0
-#define V_SCALE 10.0
+#define V_SCALE 5.0
+
+#define ELASTICITY 0.8
 
 // Standard CUDA error-check macro.
 // Taken from Robert Crovella on stackexchange.
@@ -120,26 +122,48 @@ void initialize_device_particle_grid(curandState_t *states, particle_grid_t part
   }
 }
 
+// TODO: collision should probably affect the other dimension too? (elasticity)
+__device__ inline
+void check_for_collision(double *pos, double *vel, double bdry) {
+  if (*pos < -bdry) {
+    *pos = -bdry;
+    *vel *= -1.0 * ELASTICITY;
+  }
+  else if (*pos > bdry) {
+    *pos = bdry;
+    *vel *= -1.0 * ELASTICITY;
+  }
+}
+
+
 // TODO: may need to break this out into member arrays (x, y, etc.) for better performance
 // Simulate dt seconds of time. Adjust vy according to gravity.
 __device__
-void update_particle(particle_grid_t p, size_t idx, double dt) {
+void update_particle(particle_grid_t p, size_t idx, double dt, double boundary) {
   double x = p.x[idx];
   double y = p.y[idx];
   double vx = p.vx[idx];
   double vy = p.vy[idx];
 
-  p.x[idx] = x + dt * vx;
-  p.y[idx] = y + dt * vy;
-  p.vy[idx] = vy + dt * G;
+  x = x + dt * vx;
+  y = y + dt * vy;
+  vy = vy + dt * G;
+
+  check_for_collision(&x, &vx, boundary);
+  check_for_collision(&y, &vy, boundary);
+
+  p.x[idx] = x;
+  p.y[idx] = y;
+  p.vx[idx] = vx;
+  p.vy[idx] = vy;
 }
 
 // TODO: may need to break this out into member arrays (x, y, etc.) for better performance
 __global__
-void update_device_particle_grid(particle_grid_t particles, size_t num_particles, double time_step) {
+void update_device_particle_grid(particle_grid_t particles, size_t num_particles, double time_step, double boundary) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid < num_particles) {
-    update_particle(particles, tid, time_step);
+    update_particle(particles, tid, time_step, boundary);
   }
 }
 
@@ -174,6 +198,7 @@ int main(int argc, char** argv)
   unsigned int print_interval = args->print_interval;
   unsigned int img_width = args->img_width;
   unsigned int img_height = args->img_height;
+  double boundary = args->boundary;
   printf("num particles: %lu, block_size: %d, num steps: %u\n", n_particles, block_size, n_steps);
 
 	// [Taken from class example code] Set up cuRAND states.
@@ -197,7 +222,7 @@ int main(int argc, char** argv)
   uint8_t pt_color[3] = {0xFF, 0xA5, 0x00};
   char file_name[64];
   sprintf(file_name, "./img/image%03d.bmp", 0);
-  generate_bitmap(img_width,img_height,particles_h,n_particles,bg_color,pt_color,file_name);
+  generate_bitmap(img_width,img_height,boundary,particles_h,n_particles,bg_color,pt_color,file_name);
 
 	// Run simulation.
   for (int step = 0; step < n_steps; step++) {
@@ -207,10 +232,10 @@ int main(int argc, char** argv)
       //TODO: make this asynchronous
       cudaDeviceSynchronize();
       sprintf(file_name, "./img/image%03d.bmp", step / print_interval);
-      generate_bitmap(img_width,img_height,particles_h,n_particles,bg_color,pt_color,file_name);
+      generate_bitmap(img_width,img_height,boundary,particles_h,n_particles,bg_color,pt_color,file_name);
     }
     // Compute update to particle grid.
-    update_device_particle_grid<<<grid_size, block_size>>>(particles_d, n_particles, TIME_STEP);
+    update_device_particle_grid<<<grid_size, block_size>>>(particles_d, n_particles, TIME_STEP, boundary);
   }
 
 	// Final result printout.
@@ -219,7 +244,7 @@ int main(int argc, char** argv)
   
   // Generate final image.
   sprintf(file_name, "./img/image%03u.bmp", n_steps / print_interval);
-  generate_bitmap(img_width,img_height,particles_h,n_particles,bg_color,pt_color,file_name);
+  generate_bitmap(img_width,img_height,boundary,particles_h,n_particles,bg_color,pt_color,file_name);
 
 	gpuErrChk(cudaFree(states));
   destroy_device_particle_grid(particles_d);

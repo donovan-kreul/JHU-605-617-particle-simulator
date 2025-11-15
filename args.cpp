@@ -16,13 +16,15 @@ args_t *get_arguments(int argc, char **argv) {
   args->print_interval = PRINT_INTERVAL_DEFAULT;
   args->img_height = IMG_HEIGHT_DEFAULT;
   args->img_width = IMG_WIDTH_DEFAULT;
+  args->boundary = BOUNDARY_DEFAULT;
 
-  
+  // Process arguments, checking for non-negative values as necessary.
   int c;
   int tmp;
   while (1) {
     static struct option long_options[] = {
       {"block-size",      required_argument, NULL, 'b'},
+      {"boundary",        required_argument, NULL, 'c'},
       {"image-dim",       required_argument, NULL, 'd'},
       {"particles",       required_argument, NULL, 'n'},
       {"print-interval",  required_argument, NULL, 'p'},
@@ -32,7 +34,7 @@ args_t *get_arguments(int argc, char **argv) {
 
     int option_index = 0;
 
-    c = getopt_long(argc, argv, "b:d:n:p:s:", long_options, &option_index);
+    c = getopt_long(argc, argv, "b:c:d:n:p:s:", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -50,6 +52,10 @@ args_t *get_arguments(int argc, char **argv) {
       case 'b':
         if ((tmp = atoi(optarg)) > 0)
           args->block_size = tmp;
+        break;
+
+      case 'c':
+        args->boundary = (double)atof(optarg);
         break;
       
       case 'd':

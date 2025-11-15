@@ -106,13 +106,12 @@ void write_particle_to_buffer(uint8_t *buffer, double scale, size_t img_height, 
   buffer[idx+2] = pt_color[0];
 }
 
-void generate_bitmap(unsigned int img_height, unsigned int img_width, particle_grid_t p, size_t num_particles, const uint8_t *bg_color, const uint8_t *pt_color, char *file_name) {
+void generate_bitmap(unsigned int img_height, unsigned int img_width, double scale, particle_grid_t p, size_t num_particles, const uint8_t *bg_color, const uint8_t *pt_color, char *file_name) {
   size_t row_bytes_padded = pad_to_four(3 * img_width);
   size_t img_grid_size = img_height * row_bytes_padded;
   // printf("%lu\n", img_grid_size);
   size_t num_bytes = BMP_HDR_SIZE + img_grid_size;
   uint8_t *img_buffer = allocate_image_buffer(BMP_HDR_SIZE, img_grid_size);
-  double scale = 10.0;
 
   write_header_to_buffer(img_buffer, img_height, img_width, num_bytes);
 
