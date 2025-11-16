@@ -27,7 +27,7 @@
 #define gpuErrChk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line)
 {
-	if (code != cudaSuccess) 
+  if (code != cudaSuccess) 
   {
     fprintf(stderr,"CUDA ERROR: %s %s %d\n", cudaGetErrorString(code), file, line);
     exit(code);
@@ -40,9 +40,9 @@ void printParticle(particle_grid_t p, int idx) {
   double y = p.y[idx];
   double vx = p.vx[idx];
   double vy = p.vy[idx];
-	printf("Particle %d:\n", idx);
-	printf("  pos: (%.3lf, %.3lf)\n", x, y);
-	printf("  vel: (%.3lf, %.3lf)\n", vx, vy);
+  printf("Particle %d:\n", idx);
+  printf("  pos: (%.3lf, %.3lf)\n", x, y);
+  printf("  vel: (%.3lf, %.3lf)\n", vx, vy);
 }
 
 // Add a particle with the given position and location to a particle array.
@@ -58,7 +58,7 @@ void add_particle(particle_grid_t p, int idx, double x, double y, double vx, dou
 // Initialize random states, one for each particle.
 __global__ 
 void curand_init_kernel(unsigned int seed, curandState_t *states, size_t n_particles) {
-	const unsigned int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  const unsigned int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (thread_idx < n_particles) {
       curand_init(seed, thread_idx, 0, &states[thread_idx]);
   }
@@ -110,7 +110,7 @@ void destroy_device_particle_grid(particle_grid_t p) {
 __global__ 
 void initialize_device_particle_grid(curandState_t *states, particle_grid_t particles, 
                                       size_t n_particles) {
-	const unsigned int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
+  const unsigned int thread_idx = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (thread_idx < n_particles) {
     double x, y, vx, vy;
     x = P_SCALE * curand_normal_double(&states[thread_idx]);
@@ -223,24 +223,24 @@ int main(int argc, char** argv)
   unsigned int print_interval = PRINT_INTERVAL;
   unsigned int n_steps = (unsigned int)(duration / TIME_STEP);
   
-	// [Taken from class example code] Set up cuRAND states.
-	curandState_t* states;
-	gpuErrChk(cudaMalloc((void **)&states, n_particles * sizeof(curandState_t)));
-	curand_init_kernel<<<grid_size, block_size>>>
+  // [Taken from class example code] Set up cuRAND states.
+  curandState_t* states;
+  gpuErrChk(cudaMalloc((void **)&states, n_particles * sizeof(curandState_t)));
+  curand_init_kernel<<<grid_size, block_size>>>
     (time(0), states, n_particles);
-	gpuErrChk(cudaGetLastError());
+  gpuErrChk(cudaGetLastError());
   
-	// Create particle grid on device, and initialize with random values.
+  // Create particle grid on device, and initialize with random values.
   printf("Creating particle grids...\n");
   particle_grid_t particles_d = create_device_particle_grid(n_particles);
-	initialize_device_particle_grid<<<grid_size, block_size>>>
+  initialize_device_particle_grid<<<grid_size, block_size>>>
     (states, particles_d, n_particles);
-	gpuErrChk(cudaGetLastError());
+  gpuErrChk(cudaGetLastError());
   
   // Allocate space for host particle grid.
   particle_grid_t particles_h = create_host_particle_grid(n_particles);
   
-	// Run simulation.
+  // Run simulation.
   printf("Running %u steps of simulation...\n", n_steps);
   for (int step = 0; step < n_steps; step++) {
     // Generate bitmap image on every print_interval'th step.
@@ -256,19 +256,19 @@ int main(int argc, char** argv)
       (particles_d, n_particles, TIME_STEP, boundary, elasticity);
   }
 
-	// Generate image of final result.
+  // Generate image of final result.
   copy_particle_grid(particles_d, particles_h, n_particles);
-	debug_print(debug, particles_h, n_particles, n_steps);
+  debug_print(debug, particles_h, n_particles, n_steps);
   sprintf(file_name, "./img/image%04u.bmp", n_steps / print_interval);
   generate_bitmap(img_width, img_height, boundary, particles_h,
                   n_particles, bg_color, pt_color, file_name);
 
   // Clean up memory allocations.
-	gpuErrChk(cudaFree(states));
+  gpuErrChk(cudaFree(states));
   destroy_device_particle_grid(particles_d);
   destroy_host_particle_grid(particles_h);
   free(args);
 
   printf("Simulation complete! See /img for output.\n");
-	return EXIT_SUCCESS;
+  return EXIT_SUCCESS;
 }
