@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <curand.h>
 #include <curand_kernel.h>
+#include <chrono>
 
 #include "args.h"
 #include "particles.h"
@@ -35,7 +36,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line)
 }
 
 // Print a particle's index, position, and velocity. Useful for debugging.
-void printParticle(particle_grid_t p, int idx) {
+void print_particle(particle_grid_t p, int idx) {
   double x = p.x[idx];
   double y = p.y[idx];
   double vx = p.vx[idx];
@@ -65,13 +66,15 @@ void curand_init_kernel(unsigned int seed, curandState_t *states, size_t n_parti
 }
 
 // Allocate space for particle grid on host.
-particle_grid_t create_host_particle_grid(size_t num_particles) {
+particle_grid_t create_host_particle_grid(size_t num_particles, bool debug) {
   particle_grid_t p;
   size_t num_bytes = sizeof(double) * num_particles;
   p.x = (double *)malloc(num_bytes);
   p.y = (double *)malloc(num_bytes);
-  p.vx = (double *)malloc(num_bytes);
-  p.vy = (double *)malloc(num_bytes);
+  if (debug) {
+    p.vx = (double *)malloc(num_bytes);
+    p.vy = (double *)malloc(num_bytes);
+  }
   return p;
 }
 
@@ -91,11 +94,13 @@ particle_grid_t create_device_particle_grid(size_t num_particles) {
 }
 
 // Free host particle grid.
-void destroy_host_particle_grid(particle_grid_t p) {
+void destroy_host_particle_grid(particle_grid_t p, bool debug) {
   free(p.x);
   free(p.y);
-  free(p.vx);
-  free(p.vy);
+  if (debug) {
+    free(p.vx);
+    free(p.vy);
+  }
 }
 
 // Free device particle grid.
@@ -139,22 +144,18 @@ void update_particle(particle_grid_t p, size_t idx, double dt, double bdry, doub
   if (x < -bdry) {
     x = -bdry;
     vx *= -1.0 * e;
-    vy *= e;
   }
   else if (x > bdry) {
     x = bdry;
     vx *= -1.0 * e;
-    vy *= e;
   }
   if (y < -bdry) {
     y = -bdry;
     vy *= -1.0 * e;
-    vx *= e;
   }
   else if (y > bdry) {
     y = bdry;
     vy *= -1.0 * e;
-    vx *= e;
   }
 
   // Update particle with new values.
@@ -174,21 +175,23 @@ void update_device_particle_grid(particle_grid_t particles, size_t num_particles
   }
 }
 
+// Print the first and last particles at a given step.
+void debug_print(particle_grid_t p_h, size_t num_particles, int step) {
+  printf("\n=== Time step %d: ===\n", step);
+  print_particle(p_h, 0);
+  print_particle(p_h, num_particles - 1);
+}
+
 // Copy device particle matrix to host.
-void copy_particle_grid(particle_grid_t p_d, particle_grid_t p_h, size_t num_particles) {
+// Print full info for first and last particle (debug mode only).
+void copy_particle_grid(particle_grid_t p_d, particle_grid_t p_h, size_t num_particles, int step, bool debug) {
   size_t num_bytes = sizeof(double) * num_particles;
   gpuErrChk(cudaMemcpy(p_h.x, p_d.x, num_bytes, cudaMemcpyDeviceToHost));
   gpuErrChk(cudaMemcpy(p_h.y, p_d.y, num_bytes, cudaMemcpyDeviceToHost));
-  gpuErrChk(cudaMemcpy(p_h.vx, p_d.vx, num_bytes, cudaMemcpyDeviceToHost));
-  gpuErrChk(cudaMemcpy(p_h.vy, p_d.vy, num_bytes, cudaMemcpyDeviceToHost));
-}
-
-// Print the first and last particles at a given step.
-void debug_print(bool debug, particle_grid_t p_h, size_t num_particles, int step) {
   if (debug) {
-    printf("\n=== Time step %d: ===\n", step);
-    printParticle(p_h, 0);
-    printParticle(p_h, num_particles - 1);
+    gpuErrChk(cudaMemcpy(p_h.vx, p_d.vx, num_bytes, cudaMemcpyDeviceToHost));
+    gpuErrChk(cudaMemcpy(p_h.vy, p_d.vy, num_bytes, cudaMemcpyDeviceToHost));
+    debug_print(p_h, num_particles, step);
   }
 }
 
@@ -203,11 +206,6 @@ int main(int argc, char** argv)
     exit(result);
   }
   
-  // Set up particle and background colors for generated bitmap images.
-  char file_name[64];
-  uint8_t bg_color[3] = {0x00, 0x00, 0x00};
-  uint8_t pt_color[3] = {0xFF, 0xA5, 0x00};
-  
   // Assign values to local variables for better readability.
   size_t n_particles = args->n_particles;
   unsigned int block_size = args->block_size;
@@ -218,6 +216,17 @@ int main(int argc, char** argv)
   double boundary = args->boundary;
   double elasticity = args->elasticity;
   bool debug = args->debug;
+
+  // Open output pipe to ffmpeg.
+  char ffmpeg_cmd[200];
+  sprintf(ffmpeg_cmd, "ffmpeg -loglevel panic -y -f image2pipe -vcodec bmp \
+     -video_size %dx%d -framerate 50 -i - -c:v libx264 -pix_fmt yuv420p -crf 24 \
+     ./img/simulation.mp4", img_width, img_height);
+  FILE *pipeout = popen(ffmpeg_cmd, "w");
+
+  // Set up timing variables.
+  std::chrono::time_point<std::chrono::steady_clock> start, end;
+  std::chrono::duration<double> elapsed_seconds;
   
   // Compute number of steps needed for desired duration.
   unsigned int print_interval = PRINT_INTERVAL;
@@ -238,37 +247,40 @@ int main(int argc, char** argv)
   gpuErrChk(cudaGetLastError());
   
   // Allocate space for host particle grid.
-  particle_grid_t particles_h = create_host_particle_grid(n_particles);
+  particle_grid_t particles_h = create_host_particle_grid(n_particles, debug);
   
   // Run simulation.
   printf("Running %u steps of simulation...\n", n_steps);
+  start = std::chrono::steady_clock::now();
   for (int step = 0; step < n_steps; step++) {
     // Generate bitmap image on every print_interval'th step.
     if (step % print_interval == 0) {
-      copy_particle_grid(particles_d, particles_h, n_particles);
-      debug_print(debug, particles_h, n_particles, step);
-      sprintf(file_name, "./img/image%04d.bmp", step / print_interval);
-      generate_bitmap(img_width, img_height, boundary, particles_h,
-                      n_particles, bg_color, pt_color, file_name);
+      copy_particle_grid(particles_d, particles_h, n_particles, step, debug);
+      generate_bitmap(step/print_interval, img_width, img_height, boundary, particles_h,
+                      n_particles, pipeout, debug);
     }
     // Compute update to particle grid.
     update_device_particle_grid<<<grid_size, block_size>>>
       (particles_d, n_particles, TIME_STEP, boundary, elasticity);
   }
-
+  
   // Generate image of final result.
-  copy_particle_grid(particles_d, particles_h, n_particles);
-  debug_print(debug, particles_h, n_particles, n_steps);
-  sprintf(file_name, "./img/image%04u.bmp", n_steps / print_interval);
-  generate_bitmap(img_width, img_height, boundary, particles_h,
-                  n_particles, bg_color, pt_color, file_name);
-
-  // Clean up memory allocations.
+  copy_particle_grid(particles_d, particles_h, n_particles, n_steps, debug);
+  generate_bitmap(n_steps/print_interval, img_width, img_height, boundary, particles_h,
+    n_particles, pipeout, debug);
+  end = std::chrono::steady_clock::now();
+  elapsed_seconds = end - start;
+      
+  // Close ffmpeg pipe, and clean up memory allocations.
+  fflush(pipeout);
+  pclose(pipeout);
   gpuErrChk(cudaFree(states));
   destroy_device_particle_grid(particles_d);
-  destroy_host_particle_grid(particles_h);
+  destroy_host_particle_grid(particles_h, debug);
   free(args);
 
-  printf("Simulation complete! See /img for output.\n");
+  // Display host-side runtime and exit.
+  printf("Simulation complete! See /img/simulation.mp4 for output.\n");
+  printf("Runtime: %.2lfs.\n", elapsed_seconds.count());
   return EXIT_SUCCESS;
 }

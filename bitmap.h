@@ -3,13 +3,14 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include "particles.h"
 
 #define pad_to_four(n) (((n + 3) / 4) * 4)
 
-void generate_bitmap(unsigned int img_length, unsigned int img_width, 
-  double scale, particle_grid_t p, size_t num_particles, 
-  const uint8_t *bg_color, const uint8_t *pt_color, char *file_name);
+void generate_bitmap(size_t idx, unsigned int img_height, unsigned int img_width,
+                      double scale, particle_grid_t p, size_t num_particles, 
+                      FILE *pipeout, bool debug);
 
 #endif // BITMAP_H

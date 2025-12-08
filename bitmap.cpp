@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "bitmap.h"
 #include "particles.h"
@@ -37,7 +38,7 @@ int clamp(int val, int low, int high) {
 // NOTE: Doesn't validate that buffer is in proper bitmap format.
 void write_bitmap_to_file(uint8_t *buffer, size_t num_bytes, char *file_name) {
   FILE *write_ptr;
-  write_ptr = fopen(file_name,"wb");
+  write_ptr = fopen(file_name, "wb");
   fwrite(buffer, sizeof(uint8_t), num_bytes, write_ptr);
   fclose(write_ptr);
 }
@@ -92,12 +93,11 @@ void write_header_to_buffer(uint8_t *buffer, unsigned int img_height,
 // Returns an index into the grid based on particle's position.
 size_t get_grid_index(double scale, unsigned int img_height, unsigned int img_width, 
                       double pt_x, double pt_y) {
-  int out_x = (pt_x * (0.5 * img_width / scale) + (0.5 * img_width));
-  int out_y = (pt_y * (0.5 * img_height / scale) + (0.5 * img_height));
+  int out_x = std::lround(pt_x * (0.5 * img_width / scale) + (0.5 * img_width));
+  int out_y = std::lround(pt_y * (0.5 * img_height / scale) + (0.5 * img_height));
   out_x = clamp(out_x, 0, (int)img_width - 1);
   out_y = clamp(out_y, 0, (int)img_height - 1);
   size_t idx = BMP_HDR_SIZE + 3 * (img_width * out_y + out_x);
-  // printf("%f %f -> %d %d %lu\n", pt_x, pt_y, out_x, out_y, idx); fflush(stdout);
   return idx;
 }
 
@@ -112,24 +112,34 @@ void write_particle_to_buffer(uint8_t *buffer, double scale, size_t img_height,
 }
 
 // Generate a bitmap image file based on the given particle grid. 
-// NOTE: Currently, bg_color is ignored.
-void generate_bitmap(unsigned int img_height, unsigned int img_width, double scale,
-                      particle_grid_t p, size_t num_particles, const uint8_t *bg_color, 
-                      const uint8_t *pt_color, char *file_name) {
+void generate_bitmap(size_t img_idx, unsigned int img_height, unsigned int img_width,
+                      double scale, particle_grid_t p, size_t num_particles, 
+                      FILE *pipeout, bool debug) {
+                          
+  uint8_t pt_color[3] = {0xFF, 0xA5, 0x00}; // orange
+
+  // Create a buffer for the bitmap image.
   size_t img_buffer_width = pad_to_four(3 * img_width);
   size_t img_grid_size = img_height * img_buffer_width;
   size_t num_bytes = BMP_HDR_SIZE + img_grid_size;
   uint8_t *img_buffer = allocate_image_buffer(BMP_HDR_SIZE, img_grid_size);
 
+  // Fill in the image buffer.
   write_header_to_buffer(img_buffer, img_height, img_width, num_bytes);
-
   for (int i = 0; i < num_particles; i++) {
     double pt_x = p.x[i];
     double pt_y = p.y[i];
     write_particle_to_buffer(img_buffer, scale, img_height, img_width, pt_x, pt_y, pt_color);
   }
 
-  write_bitmap_to_file(img_buffer, num_bytes, file_name);
+  // Print bitmap image to file (debug mode only).
+  if (debug) {
+    char file_name[64];
+    sprintf(file_name, "./img/image%04lu.bmp", img_idx);
+    write_bitmap_to_file(img_buffer, num_bytes, file_name);
+  }
 
+  // Send bitmap image to the given pipe.
+  fwrite(img_buffer, sizeof(uint8_t), num_bytes, pipeout);
   free(img_buffer);
 }
